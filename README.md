@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Meme Social
+
+A social network for creating and sharing AI-generated memes using DALL-E 3.
+
+## Features
+
+- 🎨 AI-powered meme generation with DALL-E 3
+- 🔒 Secure authentication with Supabase
+- 🌙 Dark mode support
+- 📱 Mobile-first responsive design
+- 🖼️ Multiple art styles
+- ❤️ Like and comment system
+- 👤 User profiles
+
+## Tech Stack
+
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Supabase (Auth & Database)
+- OpenAI API (DALL-E 3)
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/meme-social.git
+   cd meme-social
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Create a `.env.local` file with your environment variables:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   OPENAI_API_KEY=your_openai_api_key
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+4. Run the development server:
+   ```bash
+   pnpm dev
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+## Database Schema
 
-To learn more about Next.js, take a look at the following resources:
+### Profiles
+- id (string, primary key)
+- username (string)
+- avatar_url (string, nullable)
+- created_at (timestamp)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Memes
+- id (string, primary key)
+- user_id (string, foreign key)
+- image_url (string)
+- caption (string, nullable)
+- created_at (timestamp)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Likes
+- id (string, primary key)
+- user_id (string, foreign key)
+- meme_id (string, foreign key)
+- created_at (timestamp)
 
-## Deploy on Vercel
+### Comments
+- id (string, primary key)
+- user_id (string, foreign key)
+- meme_id (string, foreign key)
+- content (string)
+- created_at (timestamp)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contributing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
