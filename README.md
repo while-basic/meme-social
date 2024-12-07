@@ -1,3 +1,7 @@
+# To do
+- add generated image to news feed automatically
+- add trending, most liked, most commented to news feed
+
 # AI Meme Social
 
 A social network for creating and sharing AI-generated memes using DALL-E 3.
@@ -25,7 +29,7 @@ A social network for creating and sharing AI-generated memes using DALL-E 3.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/meme-social.git
+   git clone https://github.com/while-basic/meme-social.git
    cd meme-social
    ```
 
