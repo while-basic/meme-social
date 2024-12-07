@@ -7,7 +7,6 @@ import { Wand2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
 import {
   Select,
   SelectContent,
@@ -65,12 +64,13 @@ export default function CreatePost() {
       
       toast({
         title: 'Success!',
-        description: 'Your meme has been generated and saved.',
+        description: 'Your meme has been generated and shared.',
       })
 
-      // Redirect to profile page after a short delay
+      // Redirect to home page after a short delay
       setTimeout(() => {
-        router.push('/profile')
+        router.push('/')
+        router.refresh()
       }, 2000)
     } catch (error) {
       toast({

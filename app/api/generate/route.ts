@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     // Generate image with DALL-E 3
     const response = await openai.images.generate({
-      model: "dall-e-3",
+      model: "dall-e-3", // dall-e-3 is not available in the free tier
       prompt: `${prompt}${style ? `. Style: ${style}` : ''}`,
       n: 1,
       size: "1024x1024",

@@ -1,6 +1,12 @@
 # To do
-- add generated image to news feed automatically
-- add trending, most liked, most commented to news feed
+- [ ] add generated image to news feed automatically
+- [ ] add trending, most liked, most commented to news feed
+
+
+
+
+
+
 
 # AI Meme Social
 
