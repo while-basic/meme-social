@@ -1,84 +1,66 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAuth } from '@/contexts/auth-context'
-import { supabase } from '@/lib/supabase'
-import { type Profile, type Meme } from '@/lib/supabase'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ImagePost } from '@/components/image-post'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/auth-context'
 import { Loader2 } from 'lucide-react'
+import type { Database } from '@/lib/database.types'
 
-interface MemeWithStats extends Meme {
-  likes_count: { count: number }
-  comments_count: { count: number }
-}
+type Profile = Database['public']['Tables']['profiles']['Row']
+type Meme = Database['public']['Tables']['memes']['Row']
 
-interface Post {
-  id: number
-  imageUrl: string
-  author: {
-    name: string
-    avatar: string
-  }
-  likes: number
-  comments: number
-  createdAt: string
-  prompt: string
+interface MemeWithAuthor extends Meme {
+  profiles: Profile;
+  likes_count: Array<{ count: number }>;
+  comments_count: Array<{ count: number }>;
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [memes, setMemes] = useState<MemeWithStats[]>([])
+  const [memes, setMemes] = useState<MemeWithAuthor[]>([])
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   useEffect(() => {
-    async function loadProfile() {
+    async function loadMemes() {
       if (!user) return
 
       try {
-        // Load profile
-        const { data: profileData, error: profileError } = await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
-          .select('id, username, avatar_url, created_at')
+          .select('*')
           .eq('id', user.id)
           .single()
 
         if (profileError) throw profileError
-        setProfile(profileData)
 
-        // Load memes with likes and comments count
         const { data: memesData, error: memesError } = await supabase
           .from('memes')
           .select(`
             *,
+            profiles!memes_user_id_fkey (
+              id,
+              username,
+              avatar_url,
+              created_at
+            ),
             likes_count:likes(count),
             comments_count:comments(count)
           `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .returns<MemeWithAuthor[]>();
 
         if (memesError) throw memesError
-        setMemes(memesData as MemeWithStats[])
+        setMemes(memesData || []);
       } catch (error) {
-        console.error('Error loading profile:', error)
+        console.error('Error loading profile memes:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    loadProfile()
+    loadMemes()
   }, [user])
-
-  if (!user) {
-    return (
-      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
-        <p className="text-muted-foreground">Please sign in to view your profile.</p>
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -88,86 +70,46 @@ export default function ProfilePage() {
     )
   }
 
-  if (!profile) return null
-
-  const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`
+  if (!user) {
+    return (
+      <div className="container max-w-2xl py-4">
+        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+          Please sign in to view your profile
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="container max-w-4xl py-8">
-      <Card className="mb-8">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-6">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={profile.avatar_url || defaultAvatar} />
-              <AvatarFallback>{profile.username[0].toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold">{profile.username}</h1>
-              <div className="mt-4 flex gap-6">
-                <div>
-                  <div className="text-2xl font-bold">{memes.length}</div>
-                  <div className="text-sm text-muted-foreground">Memes</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">
-                    {memes.reduce((acc, meme) => acc + (meme.likes_count.count || 0), 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Total Likes</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">
-                    {memes.reduce((acc, meme) => acc + (meme.comments_count.count || 0), 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Comments</div>
-                </div>
-              </div>
+    <div className="container max-w-2xl py-4">
+      <h1 className="mb-8 text-2xl font-bold">My Memes</h1>
+      <ScrollArea className="h-[calc(100vh-8rem)]">
+        <div className="space-y-8">
+          {memes.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+              You haven&apos;t created any memes yet
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="gallery">
-        <TabsList className="w-full">
-          <TabsTrigger value="gallery" className="flex-1">
-            AI Gallery
-          </TabsTrigger>
-          <TabsTrigger value="liked" className="flex-1">
-            Liked Memes
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="gallery" className="mt-6">
-          <div className="space-y-8">
-            {memes.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                No memes created yet. Time to get creative!
-              </div>
-            ) : (
-              memes.map((meme) => (
-                <ImagePost
-                  key={meme.id}
-                  post={{
-                    id: parseInt(meme.id),
-                    imageUrl: meme.image_url,
-                    author: {
-                      name: profile.username,
-                      avatar: profile.avatar_url || defaultAvatar,
-                    },
-                    likes: meme.likes_count.count || 0,
-                    comments: meme.comments_count.count || 0,
-                    createdAt: new Date(meme.created_at).toLocaleDateString(),
-                    prompt: meme.caption || '',
-                  }}
-                />
-              ))
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent value="liked" className="mt-6">
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-            Liked memes coming soon!
-          </div>
-        </TabsContent>
-      </Tabs>
+          ) : (
+            memes.map((meme) => (
+              <ImagePost
+                key={meme.id}
+                post={{
+                  id: meme.id,
+                  imageUrl: meme.image_url,
+                  author: {
+                    name: meme.profiles.username,
+                    avatar: meme.profiles.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${meme.profiles.username}`,
+                  },
+                  likes: meme.likes_count[0]?.count || 0,
+                  comments: meme.comments_count[0]?.count || 0,
+                  createdAt: new Date(meme.created_at).toLocaleDateString(),
+                  prompt: meme.caption || '',
+                }}
+              />
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   )
 } 

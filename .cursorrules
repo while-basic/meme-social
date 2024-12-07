@@ -1,0 +1,113 @@
+{
+  "version": "2.0.0",
+  "projectType": ["nextjs", "fullstack", "ai-powered"],
+  "ai": {
+    "assistant": {
+      "mode": "intelligent-complete",
+      "capabilities": [
+        "context-aware-suggestions",
+        "code-generation",
+        "documentation-assistance"
+      ]
+    },
+    "openai": {
+      "preferredModel": "gpt-4o",
+      "maxTokens": 4096,
+      "temperature": 0.7
+    }
+  },
+  "codeStyle": {
+    "javascript": {
+      "indent": 2,
+      "maxLineLength": 100,
+      "trailingCommas": true,
+      "semicolons": true
+    },
+    "typescript": {
+      "strictNullChecks": true,
+      "noImplicitAny": true
+    }
+  },
+  "linting": {
+    "eslint": {
+      "extends": [
+        "next/core-web-vitals",
+        "plugin:react-hooks/recommended",
+        "plugin:@typescript-eslint/recommended"
+      ],
+      "rules": {
+        "no-unused-vars": "warn",
+        "react/prop-types": "off",
+        "@typescript-eslint/explicit-module-boundary-types": "off"
+      }
+    }
+  },
+  "frameworks": {
+    "nextjs": {
+      "appDir": true,
+      "serverComponents": true,
+      "preferredRouter": "app"
+    },
+    "react": {
+      "preferredHooks": ["useState", "useEffect", "useCallback"],
+      "avoidUnsafeLifecycles": true
+    }
+  },
+  "backend": {
+    "supabase": {
+      "authStrategy": "row-level-security",
+      "preferredClient": "supabase-js-v2"
+    },
+    "node": {
+      "engineVersion": ">=18.0.0",
+      "preferredPackageManager": "pnpm"
+    }
+  },
+  "security": {
+    "sensitiveData": {
+      "masking": true,
+      "envFileProtection": true
+    },
+    "openai": {
+      "apiKeyHandling": "strict-environment-variables"
+    }
+  },
+  "performance": {
+    "optimization": {
+      "imageOptimization": true,
+      "serverSideRendering": true,
+      "staticGeneration": true
+    }
+  },
+  "ignore": [
+    "node_modules/**",
+    ".next/**",
+    "/.git",
+    "/.env.local",
+    "/.env.production"
+  ],
+  "extensions": {
+    "recommended": [
+      "tsx",
+      "ts",
+      "js",
+      "jsx",
+      "json",
+      "md"
+    ],
+    "disabled": [
+      "lock files",
+      "system files"
+    ]
+  },
+  "codeQuality": {
+    "testing": {
+      "unitTesting": "jest",
+      "e2eTestingFramework": "playwright"
+    },
+    "documentation": {
+      "generator": "typedoc",
+      "commentStyle": "tsdoc"
+    }
+  }
+}

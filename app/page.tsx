@@ -7,10 +7,13 @@ import { supabase } from '@/lib/supabase'
 import { Loader2 } from 'lucide-react'
 import type { Database } from '@/lib/database.types'
 
-type MemeWithAuthor = Database['public']['Tables']['memes']['Row'] & {
-  profiles: Database['public']['Tables']['profiles']['Row']
-  likes_count: { count: number }
-  comments_count: { count: number }
+type Profile = Database['public']['Tables']['profiles']['Row']
+type Meme = Database['public']['Tables']['memes']['Row']
+
+interface MemeWithAuthor extends Meme {
+  profiles: Profile
+  likes_count: Array<{ count: number }>
+  comments_count: Array<{ count: number }>
 }
 
 export default function Home() {
@@ -20,18 +23,25 @@ export default function Home() {
   useEffect(() => {
     async function loadMemes() {
       try {
-        const { data: memesData, error } = await supabase
+        const { data, error } = await supabase
           .from('memes')
           .select(`
             *,
-            profiles:user_id (*),
+            profiles!memes_user_id_fkey (
+              id,
+              username,
+              avatar_url,
+              created_at
+            ),
             likes_count:likes(count),
             comments_count:comments(count)
           `)
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setMemes(memesData)
+        if (data) {
+          setMemes(data as MemeWithAuthor[])
+        }
       } catch (error) {
         console.error('Error loading memes:', error)
       } finally {
@@ -41,7 +51,7 @@ export default function Home() {
 
     loadMemes()
 
-    // Subscribe to new memes
+    // Subscribe to new memes and comments
     const channel = supabase
       .channel('public:memes')
       .on(
@@ -52,20 +62,71 @@ export default function Home() {
           table: 'memes',
         },
         async (payload) => {
-          // Fetch the complete meme data with author and counts
-          const { data: newMeme } = await supabase
+          if (!payload.new || !('id' in payload.new)) return
+
+          const { data, error } = await supabase
             .from('memes')
             .select(`
               *,
-              profiles:user_id (*),
+              profiles!memes_user_id_fkey (
+                id,
+                username,
+                avatar_url,
+                created_at
+              ),
               likes_count:likes(count),
               comments_count:comments(count)
             `)
             .eq('id', payload.new.id)
             .single()
 
-          if (newMeme) {
-            setMemes((currentMemes) => [newMeme, ...currentMemes])
+          if (error) {
+            console.error('Error fetching new meme:', error)
+            return
+          }
+
+          if (data) {
+            setMemes((current) => [data as MemeWithAuthor, ...current])
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+        },
+        async (payload) => {
+          if (!payload.new || !('meme_id' in payload.new)) return
+
+          const { data, error } = await supabase
+            .from('memes')
+            .select(`
+              *,
+              profiles!memes_user_id_fkey (
+                id,
+                username,
+                avatar_url,
+                created_at
+              ),
+              likes_count:likes(count),
+              comments_count:comments(count)
+            `)
+            .eq('id', payload.new.meme_id)
+            .single()
+
+          if (error) {
+            console.error('Error fetching updated meme:', error)
+            return
+          }
+
+          if (data) {
+            setMemes((current) =>
+              current.map((meme) =>
+                meme.id === data.id ? (data as MemeWithAuthor) : meme
+              )
+            )
           }
         }
       )
@@ -104,8 +165,8 @@ export default function Home() {
                     name: meme.profiles.username,
                     avatar: meme.profiles.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${meme.profiles.username}`,
                   },
-                  likes: meme.likes_count.count || 0,
-                  comments: meme.comments_count.count || 0,
+                  likes: meme.likes_count[0]?.count || 0,
+                  comments: meme.comments_count[0]?.count || 0,
                   createdAt: new Date(meme.created_at).toLocaleDateString(),
                   prompt: meme.caption || '',
                 }}

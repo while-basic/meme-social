@@ -40,11 +40,22 @@ interface Post {
   prompt: string
 }
 
+interface CommentResponse {
+  id: string;
+  content: string;
+  created_at: string;
+  profiles: {
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
 export function ImagePost({ post }: { post: Post }) {
   const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(post.likes)
+  const [likeCount, setLikeCount] = useState(Math.max(0, post.likes))
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
+  const [commentCount, setCommentCount] = useState(post.comments)
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
@@ -71,7 +82,14 @@ export function ImagePost({ post }: { post: Post }) {
       }
 
       if (data) {
-        setComments(data)
+        const formattedComments = data.map(comment => ({
+          ...comment,
+          profiles: {
+            username: comment.profiles?.username ?? 'Anonymous',
+            avatar_url: comment.profiles?.avatar_url ?? null
+          }
+        }))
+        setComments(formattedComments)
       }
     } catch (error) {
       const pgError = error as PostgrestError
@@ -84,19 +102,185 @@ export function ImagePost({ post }: { post: Post }) {
     }
   }, [post.id, toast])
 
+  // Load initial like count and check if user has liked
+  useEffect(() => {
+    async function loadLikeStatus() {
+      try {
+        // Get total likes count
+        const { count: totalLikes, error: countError } = await supabase
+          .from('likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('meme_id', post.id)
+
+        if (countError) throw countError
+
+        if (totalLikes !== null) {
+          setLikeCount(Math.max(0, totalLikes))
+        }
+
+        // Check if current user has liked
+        if (user) {
+          const { data, error } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('meme_id', post.id)
+            .eq('user_id', user.id)
+            .single()
+
+          if (error && error.code !== 'PGRST116') {
+            throw error
+          }
+
+          setLiked(!!data)
+        }
+      } catch (error) {
+        console.error('Error loading like status:', error)
+      }
+    }
+
+    loadLikeStatus()
+  }, [post.id, user])
+
+  // Subscribe to like changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`meme-${post.id}-likes`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes',
+          filter: `meme_id=eq.${post.id}`,
+        },
+        async () => {
+          // Update like count
+          const { count } = await supabase
+            .from('likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('meme_id', post.id)
+
+          if (count !== null) {
+            setLikeCount(Math.max(0, count))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [post.id])
+
+  // Subscribe to comment changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`meme-${post.id}-comments`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+          filter: `meme_id=eq.${post.id}`,
+        },
+        async () => {
+          // Update comment count
+          const { count } = await supabase
+            .from('comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('meme_id', post.id)
+
+          if (count !== null) {
+            setCommentCount(count)
+          }
+
+          // If comments are shown, reload them
+          if (showComments) {
+            await loadComments()
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [post.id, showComments, loadComments])
+
+  // Load initial comment count
+  useEffect(() => {
+    async function loadCommentCount() {
+      try {
+        const { count, error } = await supabase
+          .from('comments')
+          .select('*', { count: 'exact', head: true })
+          .eq('meme_id', post.id)
+
+        if (error) throw error
+
+        if (count !== null) {
+          setCommentCount(count)
+        }
+      } catch (error) {
+        console.error('Error loading comment count:', error)
+      }
+    }
+
+    loadCommentCount()
+  }, [post.id])
+
   useEffect(() => {
     if (showComments) {
       loadComments()
     }
   }, [showComments, loadComments])
 
-  const handleLike = () => {
-    if (liked) {
-      setLikeCount(likeCount - 1)
-    } else {
-      setLikeCount(likeCount + 1)
+  const handleLike = async () => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please sign in to like posts',
+      })
+      return
     }
-    setLiked(!liked)
+
+    try {
+      if (liked) {
+        // Remove like
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('meme_id', post.id)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+
+        setLiked(false)
+        setLikeCount((prev) => Math.max(0, prev - 1))
+      } else {
+        // Add like
+        const { error } = await supabase
+          .from('likes')
+          .insert({
+            meme_id: post.id,
+            user_id: user.id,
+          })
+
+        if (error) throw error
+
+        setLiked(true)
+        setLikeCount((prev) => prev + 1)
+      }
+    } catch (error) {
+      console.error('Error updating like:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update like',
+      })
+    }
   }
 
   const handleComment = async (e?: React.FormEvent) => {
@@ -118,7 +302,7 @@ export function ImagePost({ post }: { post: Post }) {
 
     setLoading(true)
     try {
-      const { data: comment, error: commentError } = await supabase
+      const { data: commentData, error: commentError } = await supabase
         .from('comments')
         .insert({
           meme_id: post.id,
@@ -129,20 +313,27 @@ export function ImagePost({ post }: { post: Post }) {
           id,
           content,
           created_at,
-          profiles:user_id (
+          profiles:profiles!user_id (
             username,
             avatar_url
           )
         `)
-        .single()
+        .single<CommentResponse>()
 
-      if (commentError) {
-        console.error('Error inserting comment:', commentError)
-        throw commentError
-      }
+      if (commentError) throw commentError
 
-      if (comment) {
-        setComments((prevComments) => [...prevComments, comment])
+      if (commentData) {
+        const formattedComment: Comment = {
+          id: commentData.id,
+          content: commentData.content,
+          created_at: commentData.created_at,
+          profiles: {
+            username: commentData.profiles.username ?? 'Anonymous',
+            avatar_url: commentData.profiles.avatar_url ?? null
+          }
+        }
+        
+        setComments(prevComments => [...prevComments, formattedComment])
         setNewComment('')
         toast({
           title: 'Success',
@@ -239,7 +430,7 @@ export function ImagePost({ post }: { post: Post }) {
               onClick={() => setShowComments(!showComments)}
             >
               <MessageCircle size={20} />
-              <span>{comments.length || post.comments}</span>
+              <span>{commentCount}</span>
             </Button>
           </div>
           <Button variant="ghost" size="sm">
